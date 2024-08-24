@@ -1,0 +1,10 @@
+parameters:
+  paths:
+    - src
+  excludePaths:
+    analyseAndScan:
+      - tests/
+  level: max
+  treatPhpDocTypesAsCertain: false
+  scanDirectories:
+    - vendor/swoole/ide-helper
