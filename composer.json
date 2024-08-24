@@ -8,6 +8,7 @@
     "grpc",
     "swoole"
   ],
+  "description": " For Phluxor Remote Actor System",
   "authors": [
     {
       "name": "Yuuki Takezawa",
@@ -19,7 +20,7 @@
     "ext-swoole": "*",
     "google/protobuf": "^3.25.3",
     "psr/log": "^3.0",
-    "phluxor/phluxor": "dev-main"
+    "phluxor/phluxor": "0.1.9"
   },
   "require-dev": {
     "phpunit/phpunit": "^10.5.11",
