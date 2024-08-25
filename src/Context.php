@@ -15,7 +15,6 @@ use Traversable;
  * @implements IteratorAggregate<string, mixed>
  * @implements ArrayAccess<string, mixed>
  */
-
 final class Context implements ContextInterface, IteratorAggregate, Countable, ArrayAccess
 {
     /**

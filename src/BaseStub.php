@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Phluxor\WebSocket;
 
+use Exception;
+
 class BaseStub
 {
     /** @var array{string, string}|array{} */
@@ -18,7 +20,7 @@ class BaseStub
      * @param array{string, string}|array{} $deserialize
      * @param mixed $value
      * @return \Google\Protobuf\Internal\Message|null
-     * @throws \Exception
+     * @throws Exception
      */
     protected function deserializeResponse(
         array $deserialize,
@@ -42,7 +44,7 @@ class BaseStub
      * @param \Google\Protobuf\Internal\Message $request
      * @param array{0: string, 1: string} $deserialize
      * @return \Google\Protobuf\Internal\Message|null
-     * @throws \Exception
+     * @throws Exception
      */
     protected function serverRequest(
         string $method,
@@ -57,7 +59,7 @@ class BaseStub
 
     /**
      * @return \Google\Protobuf\Internal\Message|null
-     * @throws \Exception
+     * @throws Exception
      */
     protected function getData(): ?\Google\Protobuf\Internal\Message
     {
