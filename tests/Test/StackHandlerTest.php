@@ -38,7 +38,7 @@ class StackHandlerTest extends TestCase
         $this->assertNull($r);
         $records = $log->getHandlers()[0]->getRecords();
         $this->assertNotCount(0, $records);
-        $this->assertEquals('WebSocket request: :->', $records[0]['message']);
+        $this->assertEquals('WebSocket request: ->', $records[0]['message']);
     }
 
     private function logger(): Logger

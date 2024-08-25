@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Phluxor\WebSocket;
 
 use Phluxor\WebSocket\Exception\ClientException;
-use Phluxor\WebSocket\Exception\ClientException as ClientExceptionAlias;
 use Swoole\Coroutine;
 use Swoole\WebSocket\Frame;
 
@@ -27,7 +26,6 @@ class Client implements ClientInterface
         'force_reconnect' => false,
         'keep_alive' => true,
     ];
-    private bool $forcedReconnect = false;
 
     /**
      * @param string $host
@@ -125,34 +123,11 @@ class Client implements ClientInterface
         if (!$conn) {
             $this->reconnect($method);
         }
-        $retry = 0;
-        while ($retry++ < $this->settings['max_retries']) {
-            $result = $this->sendMessage($message);
-            if ($result) {
-                $this->channel = new Coroutine\Channel(1);
-                $this->forcedReconnect = false;
-                return true;
-            }
-            if ($this->client->errCode > 0) {
-                if ($this->isError($retry)) {
-                    if ($this->forcedReconnect) {
-                        \Swoole\Coroutine::sleep(0.01);
-                        continue;
-                    }
-                    $this->client->close();
-                    $this->forcedReconnect = true;
-                    \Swoole\Coroutine::sleep(0.1);
-                    continue;
-                }
-                $this->forcedReconnect = false;
-                throw new ClientException(
-                    swoole_strerror($this->client->errCode, 9) . " {$this->client->host}:{$this->client->port}",
-                    $this->client->errCode
-                );
-            }
-            \Swoole\Coroutine::sleep(0.01);
+        $result = $this->sendMessage($message);
+        if ($result) {
+            $this->channel = new Coroutine\Channel(1);
+            return true;
         }
-        $this->forcedReconnect = false;
         return false;
     }
 

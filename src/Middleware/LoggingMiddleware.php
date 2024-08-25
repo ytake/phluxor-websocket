@@ -21,13 +21,17 @@ readonly class LoggingMiddleware implements MiddlewareInterface
         $context = $request->getContext();
         /** @var \Swoole\Http\Request $rawRequest */
         $rawRequest = $context->getValue(\Swoole\Http\Request::class);
-        $client = $rawRequest->server['remote_addr'] . ':' . $rawRequest->server['remote_port'];
-        $server = $rawRequest->header['host'];
-        $streamId = $rawRequest->streamId;
+        $client = '';
+        if (isset($rawRequest->server)) {
+            $client = $rawRequest->server['remote_addr'] . ':' . $rawRequest->server['remote_port'];
+        }
+        $server = '';
+        if (isset($rawRequest->header)) {
+            $server = $rawRequest->header['host'];
+        }
         $this->logger->info(
             "WebSocket request: {$client}->{$server}",
             [
-                'stream' => $streamId,
                 'service' => sprintf("%s/%s", $request->service, $request->method),
             ]
         );
