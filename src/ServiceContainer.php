@@ -69,7 +69,11 @@ final class ServiceContainer
             throw new InvokeException($e->getMessage(), Status::INTERNAL, $e);
         }
         try {
-            $output = $result->serializeToString();
+            if ($result === null) {
+                $output = '';
+            } else {
+                $output = $result->serializeToString();
+            }
         } catch (Throwable $e) {
             throw new InvokeException($e->getMessage(), Status::INTERNAL, $e);
         }
