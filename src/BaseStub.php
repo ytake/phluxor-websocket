@@ -52,7 +52,7 @@ class BaseStub
         array $deserialize
     ): ?\Google\Protobuf\Internal\Message {
         $this->deserialize = $deserialize;
-        $r = $this->client->send($method, $request);
+        $this->client->send($method, $request);
         $data = $this->client->recv(-1);
         return $this->deserializeResponse($deserialize, $data);
     }

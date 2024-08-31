@@ -119,9 +119,11 @@ class Client implements ClientInterface
         string $method,
         \Google\Protobuf\Internal\Message $message
     ): bool {
-        $conn = $this->client->upgrade($method);
-        if (!$conn) {
-            $this->reconnect($method);
+        if (!$this->client->connected) {
+            $conn = $this->client->upgrade($method);
+            if (!$conn) {
+                $this->reconnect($method);
+            }
         }
         $result = $this->sendMessage($message);
         if ($result) {

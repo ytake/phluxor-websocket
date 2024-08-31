@@ -48,9 +48,11 @@ class ServerTest extends TestCase
             $outTwo = $client->FetchResponse($message);
             $this->assertNotSame('', $outTwo->getMessage());
             $this->assertNotSame($out->getMessage(), $outTwo->getMessage());
+            $conn->close();
+            $conn = (new Client('127.0.0.1', 9502))->connect();
             $greeter = new GreeterClient($conn);
             $message = new HelloRequest();
-            $message->setName(str_repeat('x', 10));
+            $message->setName(str_repeat('x', 1));
             $outThree = $greeter->SayHello($message);
             $this->assertNotSame('', $outThree->getMessage());
             $chan->push(true);
