@@ -11,7 +11,6 @@ use Phluxor\WebSocket\Middleware\ServiceHandler;
 use Phluxor\WebSocket\Middleware\StackHandler;
 use Psr\Log\LoggerInterface;
 use Swoole\Exception;
-use Swoole\WebSocket\CloseFrame;
 use Throwable;
 
 class Server
@@ -26,7 +25,7 @@ class Server
         \Swoole\Constant::OPTION_HTTP2_MAX_FRAME_SIZE => 2 * 1024 * 1024,
     ];
 
-    /** @var array<string, ServiceContainer> */
+    /** @var array<string, RequestHandlerInterface> */
     private array $services = [];
     private \Swoole\Coroutine\Http\Server $server;
     private StackHandler $handler;
@@ -63,10 +62,9 @@ class Server
     /**
      * @throws \Exception
      */
-    public function registerService(ServiceInterface $instance): self
+    public function registerService(string $name, RequestHandlerInterface $service): self
     {
-        $service = new ServiceContainer($instance);
-        $this->services[$service->name] = $service;
+        $this->services[$name] = $service;
         return $this;
     }
 
@@ -84,62 +82,40 @@ class Server
 
     private function buildHandlers(): void
     {
-        foreach ($this->services as $serviceName => $container) {
+        foreach ($this->services as $name => $container) {
             $this->server->handle(
-                $container->name,
+                $name,
                 function (\Swoole\Http\Request $request, \Swoole\Http\Response $websocket) {
                     // enable websocket
                     $websocket->upgrade();
-                    while (true) {
-                        $frame = $websocket->recv();
-                        if ($frame === '') {
-                            $websocket->close();
-                            break;
-                        } else {
-                            if ($frame === false) {
-                                $this->logger->error(
-                                    'websocket frame error',
-                                    ['error_code' => swoole_last_error()]
-                                );
-                                $websocket->close();
-                                break;
-                            } else {
-                                if ($frame->data == 'close' || get_class($frame) === CloseFrame::class) {
-                                    $websocket->close();
-                                    break;
-                                }
-                                $context = new Context([
-                                    Constant::SERVER_WORKER_CONTEXT => new Context([
-                                        \Phluxor\WebSocket\Server::class => $this,
-                                        \Swoole\Coroutine\HTTP\Server::class => $this->server,
-                                    ]),
-                                    Constant::SERVER_SERVICES => $this->services,
-                                    \Swoole\Http\Request::class => $request,
-                                    \Swoole\Http\Response::class => $websocket,
-                                ]);
-                                try {
-                                    [, $service, $method] = explode('/', $request->server['request_uri'] ?? '');
-                                    $service = '/' . $service;
-                                    $message = $frame->data ? substr($frame->data, 5) : '';
-                                    $phluxorRequest = new Request($context, $service, $method, $message);
-                                    $response = $this->handler->handle($phluxorRequest);
-                                } catch (WebSocketException $e) {
-                                    $this->logger->error(
-                                        $e->getMessage(),
-                                        [
-                                            'error_code' => $e->getCode(),
-                                            'trace' => $e->getTraceAsString(),
-                                            'previous' => $e->getPrevious(),
-                                        ]
-                                    );
-                                    $output = '';
-                                    $response = new Response($context, $output);
-                                }
-                                if ($response != null) {
-                                    $this->send($response);
-                                }
-                            }
-                        }
+                    $context = new Context([
+                        Constant::SERVER_WORKER_CONTEXT => new Context([
+                            \Phluxor\WebSocket\Server::class => $this,
+                            \Swoole\Coroutine\HTTP\Server::class => $this->server,
+                        ]),
+                        Constant::SERVER_SERVICES => $this->services,
+                        \Swoole\Http\Request::class => $request,
+                        \Swoole\Http\Response::class => $websocket,
+                    ]);
+                    try {
+                        [, $service, $method] = explode('/', $request->server['request_uri'] ?? '');
+                        $service = '/' . $service;
+                        $phluxorRequest = new Request($context, $service, $method, $websocket);
+                        $response = $this->handler->handle($phluxorRequest);
+                    } catch (WebSocketException $e) {
+                        $this->logger->error(
+                            $e->getMessage(),
+                            [
+                                'error_code' => $e->getCode(),
+                                'trace' => $e->getTraceAsString(),
+                                'previous' => $e->getPrevious(),
+                            ]
+                        );
+                        $output = '';
+                        $response = new Response($context, $output);
+                    }
+                    if ($response != null) {
+                        $this->send($response);
                     }
                 }
             );

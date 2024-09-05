@@ -10,7 +10,7 @@ final class Request implements MessageInterface
         private Context $context,
         public readonly string $service,
         public readonly string $method,
-        public readonly string $payload
+        public readonly \Swoole\Http\Response $websocket
     ) {
     }
 

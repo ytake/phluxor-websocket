@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Phluxor\WebSocket;
 
 use Phluxor\WebSocket\Exception\ClientException;
+use Phluxor\WebSocket\Exception\ConnectionRefusedException;
 use Swoole\Coroutine;
 use Swoole\WebSocket\Frame;
 
@@ -66,6 +67,10 @@ class Client implements ClientInterface
                 if ($response instanceof Frame) {
                     if ($response->data) {
                         if ($this->channel instanceof Coroutine\Channel) {
+                            $stats = $this->channel->stats();
+                            if ($stats['consumer_num'] === 0) {
+                                $this->channel->close();
+                            }
                             $this->channel->push(substr($response->data, 5));
                         }
                     }
@@ -120,6 +125,11 @@ class Client implements ClientInterface
         \Google\Protobuf\Internal\Message $message
     ): bool {
         if (!$this->client->connected) {
+            if ($this->client->errCode == 61) {
+                throw new ConnectionRefusedException(
+                    swoole_strerror($this->client->errCode, 9)
+                );
+            }
             $conn = $this->client->upgrade($method);
             if (!$conn) {
                 $this->reconnect($method);
@@ -184,8 +194,8 @@ class Client implements ClientInterface
     public function isError(int $retry): bool
     {
         return in_array(
-            $this->client->errCode,
-            [32, 111, 5001]
-        ) && $this->settings['force_reconnect'] && $retry < $this->settings['max_retries'];
+                $this->client->errCode,
+                [32, 111, 5001]
+            ) && $this->settings['force_reconnect'] && $retry < $this->settings['max_retries'];
     }
 }
