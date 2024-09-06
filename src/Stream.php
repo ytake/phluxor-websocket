@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Phluxor\WebSocket;
 
 use Exception;
+use Phluxor\WebSocket\Exception\ConnectionClosedException;
 use Phluxor\WebSocket\Exception\WebSocketException;
 use Swoole\WebSocket\CloseFrame;
 
-class Stream
+readonly class Stream
 {
     public function __construct(
         private Request $request,
@@ -24,7 +25,7 @@ class Stream
         $frame = $this->request->websocket->recv();
         if ($frame === '') {
             $this->request->websocket->close();
-            throw new WebSocketException('websocket connection closed');
+            throw new ConnectionClosedException('websocket connection closed');
         } else {
             if ($frame === false) {
                 $this->request->websocket->close();
@@ -36,7 +37,7 @@ class Stream
                 }
                 if ($frame->data == 'close' || get_class($frame) === CloseFrame::class) {
                     $this->request->websocket->close();
-                    throw new WebSocketException('websocket connection closed');
+                    throw new ConnectionClosedException('websocket connection closed');
                 }
                 $data = $frame->data ? substr($frame->data, 5) : '';
                 $message = $this->classString;

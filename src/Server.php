@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Phluxor\WebSocket;
 
+use Phluxor\WebSocket\Exception\ConnectionClosedException;
 use Phluxor\WebSocket\Exception\WebSocketException;
 use Phluxor\WebSocket\Exception\InvokeException;
 use Phluxor\WebSocket\Middleware\MiddlewareInterface;
@@ -91,7 +92,7 @@ class Server
                     $context = new Context([
                         Constant::SERVER_WORKER_CONTEXT => new Context([
                             \Phluxor\WebSocket\Server::class => $this,
-                            \Swoole\Coroutine\HTTP\Server::class => $this->server,
+                            \Swoole\Coroutine\HTTP\Server::class => $this->server, // @phpstan-ignore-line
                         ]),
                         Constant::SERVER_SERVICES => $this->services,
                         \Swoole\Http\Request::class => $request,
@@ -113,9 +114,13 @@ class Server
                         );
                         $output = '';
                         $response = new Response($context, $output);
+                    } catch (ConnectionClosedException $e) {
+                        $this->logger->info($e->getMessage());
+                        $output = '';
+                        $response = new Response($context, $output);
                     }
                     if ($response != null) {
-                        $this->send($response);
+                        $this->send($response); // @phpstan-ignore-line
                     }
                 }
             );
