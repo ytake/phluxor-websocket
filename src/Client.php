@@ -63,23 +63,26 @@ class Client implements ClientInterface
         $this->client->set($this->settings);
         go(function () {
             while (true) {
-                $response = $this->client->recv($this->settings['timeout'] * $this->settings['max_retries']);
-                if ($response instanceof Frame) {
-                    if ($response->data) {
-                        if ($this->channel instanceof Coroutine\Channel) {
-                            $stats = $this->channel->stats();
-                            if ($stats['consumer_num'] === 0) {
-                                $this->channel->close();
+                try {
+                    $response = $this->client->recv($this->settings['timeout'] * $this->settings['max_retries']);
+                    if ($response instanceof Frame) {
+                        if ($response->data) {
+                            if ($this->channel instanceof Coroutine\Channel) {
+                                $stats = $this->channel->stats();
+                                if ($stats['consumer_num'] === 0) {
+                                    $this->channel->close();
+                                }
+                                $this->channel->push(substr($response->data, 5));
                             }
-                            $this->channel->push(substr($response->data, 5));
                         }
                     }
+                    $pop = $this->closed->pop(0.01);
+                    if ($pop) {
+                        return;
+                    }
+                } catch (\Swoole\Error $e) {
+                    Coroutine::sleep(0.01);
                 }
-                $pop = $this->closed->pop(0.01);
-                if ($pop) {
-                    return;
-                }
-                Coroutine::sleep(0.01);
             }
         });
         return $this;
@@ -104,14 +107,16 @@ class Client implements ClientInterface
             $this->connect();
             $result = $this->client->upgrade($upgradePath);
             if ($result) {
-                return;
+                break;
             }
             Coroutine::sleep(0.01);
         }
-        throw new ClientException(
-            swoole_strerror($this->client->errCode, 9) . " {$this->client->host}:{$this->client->port}",
-            $this->client->errCode
-        );
+        if ($this->client->errCode !== 0) {
+            throw new ClientException(
+                swoole_strerror($this->client->errCode, 9) . " {$this->client->host}:{$this->client->port}",
+                $this->client->errCode
+            );
+        }
     }
 
     /**

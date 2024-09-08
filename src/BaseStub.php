@@ -32,6 +32,7 @@ class BaseStub
         if (count($deserialize) === 0) {
             return null;
         }
+        // TODO: Handle multiple deserializer in the future
         [$className, $deserializeFunc] = $deserialize;
         /** @var \Google\Protobuf\Internal\Message $className */
         $obj = new $className();

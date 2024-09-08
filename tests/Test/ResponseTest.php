@@ -15,6 +15,6 @@ class ResponseTest extends TestCase
         $response = new Response(new Context([]), 'payload');
         $this->assertInstanceOf(Response::class, $response);
         $this->assertInstanceOf(Context::class, $response->context);
-        $this->assertSame('payload', $response->payload);
+        $this->assertSame('payload', $response->getPayload());
     }
 }

@@ -89,7 +89,7 @@ class ServerTest extends TestCase
             $messageTwo = '';
             \Swoole\Coroutine\go(function () {
                 $logger = $this->logger();
-                $server = new Server($logger, 'localhost', 9501);
+                $server = new Server($logger, 'localhost', 9504);
                 $process = new StubRequestProcess(new StreamService());
                 $server->registerService($process->getName(), $process);
                 go(function () use ($server) {
@@ -99,7 +99,7 @@ class ServerTest extends TestCase
                 $server->stop();
             });
             \Swoole\Coroutine\go(function () use (&$messageOne) {
-                $client = new Client('localhost', 9501);
+                $client = new Client('localhost', 9504);
                 $stream = new StreamClient($client->connect());
                 $reply = $stream->FetchResponse(new HelloRequest(['name' => 'ytake']));
                 // regex hello number
@@ -109,8 +109,51 @@ class ServerTest extends TestCase
             });
             \Swoole\Coroutine\go(function () use (&$messageTwo) {
                 \Swoole\Coroutine::sleep(1);
-                $client = new Client('localhost', 9501);
+                $client = new Client('localhost', 9504);
                 $stream = new StreamClient($client->connect());
+                $reply = $stream->FetchResponse(new HelloRequest(['name' => 'ytake']));
+                $messageTwo = $reply->getMessage();
+                // regex hello number
+                $this->assertMatchesRegularExpression('/^hello \d+$/', $messageTwo);
+                $client->close();
+            });
+            \Swoole\Coroutine::sleep(3);
+            $this->assertNotSame($messageOne, $messageTwo);
+        });
+    }
+
+    public function testRestartWebSocketServerAfter(): void
+    {
+        run(function () {
+            $messageOne = '';
+            $messageTwo = '';
+            \Swoole\Coroutine\go(function () use (&$messageOne) {
+                $client = new Client('localhost', 9503);
+                $stream = new StreamClient($client->connect());
+                \Swoole\Coroutine::sleep(0.1);
+                $reply = $stream->FetchResponse(new HelloRequest(['name' => 'ytake']));
+                // regex hello number
+                $messageOne = $reply->getMessage();
+                $this->assertMatchesRegularExpression('/^hello \d+$/', $messageOne);
+                $client->close();
+            });
+            \Swoole\Coroutine\go(function () {
+                \Swoole\Coroutine::sleep(0.1);
+                $logger = $this->logger();
+                $server = new Server($logger, 'localhost', 9503);
+                $process = new StubRequestProcess(new StreamService());
+                $server->registerService($process->getName(), $process);
+                go(function () use ($server) {
+                    $server->start();
+                });
+                \Swoole\Coroutine::sleep(2);
+                $server->stop();
+            });
+            \Swoole\Coroutine\go(function () use (&$messageTwo) {
+                \Swoole\Coroutine::sleep(1);
+                $client = new Client('localhost', 9503);
+                $stream = new StreamClient($client->connect());
+                \Swoole\Coroutine::sleep(0.1);
                 $reply = $stream->FetchResponse(new HelloRequest(['name' => 'ytake']));
                 $messageTwo = $reply->getMessage();
                 // regex hello number

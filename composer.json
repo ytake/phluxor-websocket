@@ -19,8 +19,7 @@
     "php": "^8.3",
     "ext-swoole": "*",
     "google/protobuf": "^3.25.4",
-    "psr/log": "^3.0",
-    "phluxor/phluxor": "^0.1.10"
+    "psr/log": "^3.0"
   },
   "require-dev": {
     "phpunit/phpunit": "^10.5.32",
@@ -28,7 +27,8 @@
     "swoole/ide-helper": "^5.1.4",
     "squizlabs/php_codesniffer": "^3.10.2",
     "slevomat/coding-standard": "^8.15.0",
-    "monolog/monolog": "^3.7.0"
+    "monolog/monolog": "^3.7.0",
+    "phluxor/phluxor": "^0.1.10"
   },
   "suggest": {
     "ext-protobuf": "serialization with protobuf"
