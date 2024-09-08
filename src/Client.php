@@ -19,7 +19,7 @@ class Client implements ClientInterface
 
     /** @var array{timeout: int, open_eof_check: bool, package_max_length: int, max_retries: int, receive_timeout: int, force_reconnect: bool} */
     private array $settings = [
-        'timeout' => 3,
+        'timeout' => -1,
         'open_eof_check' => true,
         'package_max_length' => 2 * 1024 * 1024,
         'max_retries' => 10,
@@ -63,25 +63,16 @@ class Client implements ClientInterface
         $this->client->set($this->settings);
         go(function () {
             while (true) {
-                try {
-                    $response = $this->client->recv($this->settings['timeout'] * $this->settings['max_retries']);
-                    if ($response instanceof Frame) {
-                        if ($response->data) {
-                            if ($this->channel instanceof Coroutine\Channel) {
-                                $stats = $this->channel->stats();
-                                if ($stats['consumer_num'] === 0) {
-                                    $this->channel->close();
-                                }
-                                $this->channel->push(substr($response->data, 5));
-                            }
+                $response = $this->client->recv($this->settings['timeout']);
+                if ($response instanceof Frame) {
+                    if ($response->data) {
+                        if ($this->channel instanceof Coroutine\Channel) {
+                            $this->channel->push(substr($response->data, 5));
                         }
                     }
-                    $pop = $this->closed->pop(0.01);
-                    if ($pop) {
-                        return;
-                    }
-                } catch (\Swoole\Error $e) {
-                    Coroutine::sleep(0.01);
+                }
+                if ($this->closed->pop(0.02)) {
+                    break;
                 }
             }
         });
@@ -94,6 +85,7 @@ class Client implements ClientInterface
     public function close(): void
     {
         $this->closed->push(true);
+        $this->client->socket?->close();
         $this->client->close();
     }
 
@@ -109,7 +101,7 @@ class Client implements ClientInterface
             if ($result) {
                 break;
             }
-            Coroutine::sleep(0.01);
+            Coroutine::sleep(0.02);
         }
         if ($this->client->errCode !== 0) {
             throw new ClientException(
