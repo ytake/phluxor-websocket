@@ -30,7 +30,7 @@ readonly class LoggingMiddleware implements MiddlewareInterface
             $server = $rawRequest->header['host'];
         }
         $this->logger->info(
-            "WebSocket request: {$client}->{$server}",
+            "WebSocket request: $client->$server",
             [
                 'service' => sprintf("%s/%s", $request->service, $request->method),
             ]

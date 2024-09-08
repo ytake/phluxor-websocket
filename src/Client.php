@@ -188,14 +188,13 @@ class Client implements ClientInterface
     }
 
     /**
-     * @param int $retry
-     * @return bool
+     * @return ClientError
      */
-    public function isError(int $retry): bool
+    public function error(): ClientError
     {
-        return in_array(
-                $this->client->errCode,
-                [32, 111, 5001]
-            ) && $this->settings['force_reconnect'] && $retry < $this->settings['max_retries'];
+        return new ClientError(
+            $this->client->errMsg,
+            $this->client->errCode
+        );
     }
 }

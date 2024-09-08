@@ -31,10 +31,10 @@ readonly class ServiceHandler implements MiddlewareInterface
         try {
             $serverService = $context->getValue(Constant::SERVER_SERVICES);
             if (!is_array($serverService)) {
-                throw new NotFoundException("{$service}::{$method} not found");
+                throw new NotFoundException("$service::$method not found");
             }
             if (!isset($serverService[$service])) {
-                throw new NotFoundException("{$service}::{$method} not found");
+                throw new NotFoundException("$service::$method not found");
             }
             $output = $serverService[$service]->handle($request);
         } catch (WebSocketException $e) {

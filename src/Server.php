@@ -132,8 +132,8 @@ class Server
         $context = $response->context;
         /** @var \Swoole\Http\Response $rawResponse */
         $rawResponse = $context->getValue(\Swoole\Http\Response::class);
-        $payload = pack('CN', 0, strlen($response->payload)) . $response->payload;
-        $rawResponse->end($payload);
+        $payload = pack('CN', 0, strlen($response->getPayload())) . $response->getPayload();
+        $rawResponse->push($payload);
     }
 
     /**

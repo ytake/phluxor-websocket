@@ -8,7 +8,12 @@ readonly class Response implements MessageInterface
 {
     public function __construct(
         public Context $context,
-        public string $payload
+        private ?string $payload
     ) {
+    }
+
+    public function getPayload(): string
+    {
+        return $this->payload ?? '';
     }
 }
