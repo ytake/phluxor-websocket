@@ -30,6 +30,7 @@ class ServerTest extends TestCase
                 $server->stop();
                 $records = $logger->getHandlers()[0]->getRecords();
                 $this->assertSameSize([], $records);
+                \Swoole\Coroutine::sleep(0.1);
             });
         });
     }
@@ -53,6 +54,7 @@ class ServerTest extends TestCase
                 $server->stop();
                 $records = $logger->getHandlers()[0]->getRecords();
                 $this->assertSameSize([], $records);
+                \Swoole\Coroutine::sleep(0.1);
             });
         });
     }
@@ -79,6 +81,7 @@ class ServerTest extends TestCase
                 $this->assertMatchesRegularExpression('/^hello \d+$/', $reply->getMessage());
                 $client->close();
             });
+            \Swoole\Coroutine::sleep(0.1);
         });
     }
 
