@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Test\ProtoBuf;
 
-use Google\Protobuf\Internal\Message;
 use Phluxor\WebSocket;
 
 class StreamClient extends WebSocket\BaseStub
@@ -15,11 +14,11 @@ class StreamClient extends WebSocket\BaseStub
     /**
      * @param HelloRequest $request
      * @param array<string|int, mixed> $metadata
-     * @return HelloReply
+     * @return ?HelloReply
      *
      * @throws WebSocket\Exception\InvokeException|\Exception
      */
-    public function FetchResponse(HelloRequest $request, array $metadata = []): HelloReply // @phpcs:ignore
+    public function FetchResponse(HelloRequest $request, array $metadata = []): ?HelloReply // @phpcs:ignore
     {
     	return $this->serverRequest(
             '/helloworld.Stream/FetchResponse',
@@ -27,13 +26,5 @@ class StreamClient extends WebSocket\BaseStub
             ['\Test\ProtoBuf\HelloReply', 'decode'],
             $metadata
         );
-    }
-
-    /**
-     * @throws \Exception
-     */
-    public function getNext(): ?Message
-    {
-        return $this->getData();
     }
 }

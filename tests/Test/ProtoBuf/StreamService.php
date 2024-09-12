@@ -7,24 +7,35 @@ declare(strict_types=1);
 
 namespace Test\ProtoBuf;
 
+use Closure;
 use Phluxor\WebSocket;
 
 class StreamService implements StreamInterface
 {
+    private ?Closure $assert = null;
+
     /**
      * @param WebSocket\ContextInterface $ctx
      * @param HelloRequest $request
-     * @return HelloReply
+     * @return void
      *
      * @throws WebSocket\Exception\InvokeException
      */
-    public function FetchResponse(WebSocket\ContextInterface $ctx, HelloRequest $request): HelloReply // @phpcs:ignore
+    public function FetchResponse(WebSocket\ContextInterface $ctx, HelloRequest $request): void // @phpcs:ignore
     {
         $name = $request->getName();
         $out = new HelloReply();
         $out->setMessage('hello ' . $name . time());
         $message = new WebSocket\Message($ctx, $out);
-        $ctx[WebSocket\Constant::SERVER_WORKER_CONTEXT]->getValue(WebSocket\Server::class)->push($message);
-        return $out;
+        $this->assert?->call($this, $message);
+        return;
+    }
+
+    /**
+     * @param Closure(WebSocket\Message): void $callback
+     */
+    public function assert(Closure $callback): void
+    {
+        $this->assert = $callback;
     }
 }

@@ -62,4 +62,9 @@ readonly class Stream
             }
         }
     }
+
+    public function close(): void
+    {
+        $this->request->websocket->close();
+    }
 }

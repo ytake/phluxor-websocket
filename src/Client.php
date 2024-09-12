@@ -1,5 +1,21 @@
 <?php
 
+/**
+ * Copyright 2024 Yuuki Takezawa <yuuki.takezawa@comnect.jp.net>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 declare(strict_types=1);
 
 namespace Phluxor\WebSocket;
@@ -61,21 +77,6 @@ class Client implements ClientInterface
     public function connect(): ClientInterface
     {
         $this->client->set($this->settings);
-        go(function () {
-            while (true) {
-                $response = $this->client->recv($this->settings['timeout']);
-                if ($response instanceof Frame) {
-                    if ($response->data) {
-                        if ($this->channel instanceof Coroutine\Channel) {
-                            $this->channel->push(substr($response->data, 5));
-                        }
-                    }
-                }
-                if ($this->closed->pop(0.02)) {
-                    break;
-                }
-            }
-        });
         return $this;
     }
 
@@ -85,7 +86,11 @@ class Client implements ClientInterface
     public function close(): void
     {
         $this->closed->push(true);
-        $this->client->socket?->close();
+        $this->channel?->close();
+    }
+
+    public function clientClose(): void
+    {
         $this->client->close();
     }
 
@@ -131,6 +136,29 @@ class Client implements ClientInterface
             if (!$conn) {
                 $this->reconnect($method);
             }
+            go(function () {
+                while (true) {
+                    if (in_array($this->client->errCode, [104, 32, 5001])) {
+                        $this->client->socket?->close();
+                        $this->client->close();
+                        $this->closed->close();
+                        break;
+                    }
+                    $response = $this->client->recv($this->settings['timeout']);
+                    if ($response instanceof Frame) {
+                        if ($response->data) {
+                            if ($this->channel instanceof Coroutine\Channel) {
+                                $this->channel->push(substr($response->data, 5));
+                            }
+                        }
+                        if ($this->closed->pop(0.1)) {
+                            $this->client->close();
+                            $this->channel?->close();
+                            break;
+                        }
+                    }
+                }
+            });
         }
         $result = $this->sendMessage($message);
         if ($result) {
@@ -149,7 +177,7 @@ class Client implements ClientInterface
     {
         $data = false;
         if ($this->channel instanceof Coroutine\Channel) {
-            $data = $this->channel->pop((int)$this->settings['receive_timeout']);
+            $data = $this->channel->pop($timeout);
         }
         if (!$data) {
             return null;
@@ -193,5 +221,10 @@ class Client implements ClientInterface
             $this->client->errMsg,
             $this->client->errCode
         );
+    }
+
+    public function hasConnectionError(): bool
+    {
+        return $this->closed->errCode != 0;
     }
 }

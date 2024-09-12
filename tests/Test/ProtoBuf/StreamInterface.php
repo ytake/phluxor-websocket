@@ -16,9 +16,9 @@ interface StreamInterface extends WebSocket\ServiceInterface
     /**
      * @param WebSocket\ContextInterface $ctx
      * @param HelloRequest $request
-     * @return HelloReply
+     * @return void
      *
      * @throws WebSocket\Exception\InvokeException
      */
-    public function FetchResponse(WebSocket\ContextInterface $ctx, HelloRequest $request): HelloReply; // @phpcs:ignore
+    public function FetchResponse(WebSocket\ContextInterface $ctx, HelloRequest $request): void;
 }

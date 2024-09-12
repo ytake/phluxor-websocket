@@ -135,7 +135,7 @@ class Server
                         $output = '';
                         $response = new Response($context, $output);
                     }
-                    if ($response != null) {
+                    if ($response != null && $response->getPayload() != '') {
                         $this->send($response); // @phpstan-ignore-line
                     }
                 }
@@ -149,7 +149,7 @@ class Server
         /** @var \Swoole\Http\Response $rawResponse */
         $rawResponse = $context->getValue(\Swoole\Http\Response::class);
         $payload = pack('CN', 0, strlen($response->getPayload())) . $response->getPayload();
-        $rawResponse->push($payload);
+        $rawResponse->end($payload);
     }
 
     /**

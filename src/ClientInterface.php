@@ -57,4 +57,8 @@ interface ClientInterface
         \Google\Protobuf\Internal\Message $message,
         bool $end = false
     ): bool;
+
+    public function error(): ClientError;
+
+    public function hasConnectionError(): bool;
 }

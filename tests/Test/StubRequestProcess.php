@@ -10,7 +10,6 @@ use Phluxor\WebSocket\Request;
 use Phluxor\WebSocket\RequestHandlerInterface;
 use Phluxor\WebSocket\ServiceInterface;
 use Phluxor\WebSocket\Status;
-use Phluxor\WebSocket\Stream;
 use Test\ProtoBuf\HelloRequest;
 
 class StubRequestProcess implements RequestHandlerInterface
