@@ -37,7 +37,7 @@ class StreamTest extends TestCase
         run(function () {
             \Swoole\Coroutine\go(function () {
                 $logger = $this->logger();
-                $server = new Server($logger, 'localhost', 9504);
+                $server = new Server($logger, 'localhost', 9505);
                 $stream = new GreeterService();
                 $stream->assert(function (Message $message) {
                     TestCase::assertInstanceOf(HelloReply::class, $message);
@@ -50,7 +50,7 @@ class StreamTest extends TestCase
                 \Swoole\Coroutine::sleep(3);
                 $server->stop();
             });
-            $client = new Client('localhost', 9504);
+            $client = new Client('localhost', 9505);
             $stream = new GreeterClient($client->connect());
             $stream->SayHello(new HelloRequest(['name' => 'ytake']));
             $client->close();
