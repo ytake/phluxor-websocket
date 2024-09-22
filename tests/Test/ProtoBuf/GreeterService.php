@@ -7,25 +7,35 @@ declare(strict_types=1);
 
 namespace Test\ProtoBuf;
 
+use Closure;
 use Phluxor\WebSocket;
 
 class GreeterService implements GreeterInterface
 {
+    private ?Closure $assert = null;
+
     /**
      * @param WebSocket\ContextInterface $ctx
-     * @param HelloRequest $request
-     * @return HelloReply
+     * @param WebSocket\Stream $stream
+     * @return void
      *
-     * @throws WebSocket\Exception\InvokeException
+     * @throws WebSocket\Exception\InvokeException|\Exception
      */
-    public function SayHello(WebSocket\ContextInterface $ctx, HelloRequest $request): HelloReply // @phpcs:ignore
+    public function SayHello(WebSocket\ContextInterface $ctx, WebSocket\Stream $stream): void // @phpcs:ignore
     {
-        $name = $request->getName();
-        $out = new HelloReply();
-        $out->setMessage('world ' . $name . time());
-        $message = new WebSocket\Message($ctx, $out);
-        $ctx[WebSocket\Constant::SERVER_WORKER_CONTEXT]->getValue(WebSocket\Server::class)->push($message);
-        \Swoole\Coroutine::sleep(0.01);
-        return $out;
+        $r = $stream->recv();
+        $callback = $this->assert;
+        if ($callback) {
+            $callback($r);
+        }
+        return;
+    }
+
+    /**
+     * @param Closure(WebSocket\Message): void $callback
+     */
+    public function assert(Closure $callback): void
+    {
+        $this->assert = $callback;
     }
 }

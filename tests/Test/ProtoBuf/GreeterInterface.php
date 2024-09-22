@@ -15,10 +15,10 @@ interface GreeterInterface extends WebSocket\ServiceInterface
 
     /**
      * @param WebSocket\ContextInterface $ctx
-     * @param HelloRequest $request
-     * @return HelloReply
+     * @param WebSocket\Stream $stream
+     * @return void
      *
      * @throws WebSocket\Exception\InvokeException
      */
-    public function SayHello(WebSocket\ContextInterface $ctx, HelloRequest $request): HelloReply; // @phpcs:ignore
+    public function SayHello(WebSocket\ContextInterface $ctx, WebSocket\Stream $stream): void; // @phpcs:ignore
 }

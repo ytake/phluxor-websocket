@@ -24,6 +24,7 @@ use Exception;
 use Phluxor\WebSocket\Exception\ConnectionClosedException;
 use Phluxor\WebSocket\Exception\WebSocketException;
 use Swoole\WebSocket\CloseFrame;
+use Swoole\WebSocket\Frame;
 
 readonly class Stream
 {
@@ -47,9 +48,14 @@ readonly class Stream
                 $this->request->websocket->close();
                 throw new WebSocketException('websocket frame error');
             } else {
-                if (!$frame instanceof \Swoole\WebSocket\Frame) {
+                if (!$frame instanceof Frame) {
                     $this->request->websocket->close();
                     throw new WebSocketException('websocket frame error');
+                }
+                if ($frame->opcode === WEBSOCKET_OPCODE_PING) {
+                    $pong = new Frame();
+                    $pong->opcode = WEBSOCKET_OPCODE_PONG;
+                    $this->request->websocket->push($pong);
                 }
                 if ($frame->data == 'close' || get_class($frame) === CloseFrame::class) {
                     $this->request->websocket->close();

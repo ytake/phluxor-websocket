@@ -15,11 +15,11 @@ class GreeterClient extends WebSocket\BaseStub
     /**
      * @param HelloRequest $request
      * @param array<string|int, mixed> $metadata
-     * @return HelloReply
+     * @return ?HelloReply
      *
      * @throws WebSocket\Exception\InvokeException|\Exception
      */
-    public function SayHello(HelloRequest $request, array $metadata = []): HelloReply // @phpcs:ignore
+    public function SayHello(HelloRequest $request, array $metadata = []): ?HelloReply // @phpcs:ignore
     {
     	return $this->serverRequest(
     	    '/helloworld.Greeter/SayHello',
