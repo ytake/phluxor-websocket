@@ -61,7 +61,10 @@ readonly class Stream
                     $this->request->websocket->close();
                     throw new ConnectionClosedException('websocket connection closed');
                 }
-                $data = $frame->data ? substr($frame->data, 5) : '';
+                $data = isset($frame->data) ? substr((string) $frame->data, 5) : '';
+                if ($data === '') {
+                    throw new WebSocketException('Frame data is empty or invalid.');
+                }
                 $message = $this->classString;
                 $message->mergeFromString($data);
                 return $message;
