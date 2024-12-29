@@ -28,27 +28,29 @@ use Swoole\WebSocket\Frame;
 class Client implements ClientInterface
 {
     private Coroutine\Http\Client $client;
-
-    /** @var Coroutine\Channel|null */
     private ?Coroutine\Channel $channel = null;
     private Coroutine\Channel $closed;
-
-    /** @var array{timeout: int, open_eof_check: bool, package_max_length: int, max_retries: int, receive_timeout: int, force_reconnect: bool} */
-    private array $settings = [
-        'timeout' => -1,
+    private const int RESPONSE_TIMEOUT = -1;
+    private const array CLIENT_ERR_CODES = [104, 32, 5001];
+    /** @var array{timeout:string, open_eof_check:bool, package_max_length:int, max_retries:int, receive_timeout:int, force_reconnect:bool, keep_alive:bool} $settings */
+    private const array DEFAULT_SETTINGS = [
+        'timeout' => self::RESPONSE_TIMEOUT,
         'open_eof_check' => true,
-        'package_max_length' => 2 * 1024 * 1024,
+        'package_max_length' => 2097152, // 2MB
         'max_retries' => 10,
-        'receive_timeout' => -1,
+        'receive_timeout' => self::RESPONSE_TIMEOUT,
         'force_reconnect' => false,
         'keep_alive' => true,
     ];
+
+    /** @var array{timeout:string, open_eof_check:bool, package_max_length:int, max_retries:int, receive_timeout:int, force_reconnect:bool, keep_alive:bool} $settings */
+    private array $settings;
 
     /**
      * @param string $host
      * @param int $port
      * @param bool $ssl
-     * @param array<string, mixed> $settings
+     * @param array{string, mixed} $settings
      */
     public function __construct(
         string $host,
@@ -56,7 +58,7 @@ class Client implements ClientInterface
         bool $ssl = false,
         array $settings = []
     ) {
-        $this->settings = array_merge($this->settings, $settings); // @phpstan-ignore-line
+        $this->settings = array_merge(self::DEFAULT_SETTINGS, $settings);
         $this->client = new Coroutine\Http\Client($host, $port, $ssl);
         $this->closed = new Coroutine\Channel(1);
     }
@@ -71,22 +73,16 @@ class Client implements ClientInterface
         return $this;
     }
 
-    /**
-     * Establish a connection to the remote endpoint
-     */
     public function connect(): ClientInterface
     {
         $this->client->set($this->settings);
         return $this;
     }
 
-    /**
-     * @return void
-     */
     public function close(): void
     {
         $this->closed->push(true);
-        $this->channel?->close();
+        $this->safeCloseChannel();
     }
 
     public function clientClose(): void
@@ -94,137 +90,108 @@ class Client implements ClientInterface
         $this->client->close();
     }
 
+    /**
+     * 冗長なロジックを抽出し簡潔に整理
+     */
     public function reconnect(string $upgradePath): void
     {
-        $retry = $this->settings['max_retries'];
-        while ($retry-- > 0) {
-            if ($this->channel instanceof Coroutine\Channel) {
-                $this->channel->close();
-            }
+        for ($retry = $this->settings['max_retries']; $retry > 0; $retry--) {
+            $this->safeCloseChannel();
             $this->connect();
-            $result = $this->client->upgrade($upgradePath);
-            if ($result) {
-                break;
+
+            if ($this->client->upgrade($upgradePath)) {
+                return;
             }
             Coroutine::sleep(0.02);
         }
-        if ($this->client->errCode !== 0) {
-            throw new ClientException(
-                swoole_strerror($this->client->errCode, 9) . " {$this->client->host}:{$this->client->port}",
-                $this->client->errCode
-            );
-        }
+
+        throw new ClientException(
+            swoole_strerror($this->client->errCode, 9) . " {$this->client->host}:{$this->client->port}",
+            $this->client->errCode
+        );
     }
 
     /**
-     * Send message to remote endpoint, either end the stream or not depending on $mode of the client
-     * @param string $method
-     * @param \Google\Protobuf\Internal\Message $message
-     * @return bool
+     * クライアントエラー時以外はデータ送信
      */
-    public function send(
-        string $method,
-        \Google\Protobuf\Internal\Message $message
-    ): bool {
+    public function send(string $method, \Google\Protobuf\Internal\Message $message): bool
+    {
         if (!$this->client->connected) {
             if ($this->client->errCode == 61) {
                 throw new ConnectionRefusedException(
                     swoole_strerror($this->client->errCode, 9)
                 );
             }
-            $conn = $this->client->upgrade($method);
-            if (!$conn) {
+            if (!$this->client->upgrade($method)) {
                 $this->reconnect($method);
             }
-            go(function () {
-                while (true) {
-                    if (in_array($this->client->errCode, [104, 32, 5001])) {
-                        $this->client->socket?->close();
-                        $this->client->close();
-                        $this->closed->close();
-                        break;
-                    }
-                    $response = $this->client->recv($this->settings['timeout']);
-                    if ($response instanceof Frame) {
-                        if ($response->data) {
-                            if ($this->channel instanceof Coroutine\Channel) {
-                                $this->channel->push(substr($response->data, 5));
-                            }
-                        }
-                        if ($this->closed->pop(0.1)) {
-                            $this->client->close();
-                            $this->channel?->close();
-                            break;
-                        }
-                    }
-                }
-            });
+
+            $this->startReceivingLoop();
         }
-        $result = $this->sendMessage($message);
-        if ($result) {
+
+        if ($this->sendMessage($message)) {
             $this->channel = new Coroutine\Channel(1);
             return true;
         }
         return false;
     }
 
-    /**
-     * Receive the data from a stream in the established connection based on streamId.
-     * @param int $timeout
-     * @return mixed
-     */
-    public function recv(int $timeout = -1): mixed
+    public function recv(int $timeout = self::RESPONSE_TIMEOUT): mixed
     {
-        $data = false;
-        if ($this->channel instanceof Coroutine\Channel) {
-            $data = $this->channel->pop($timeout);
-        }
-        if (!$data) {
-            return null;
-        }
-        return $data;
+        return $this->channel?->pop($timeout) ?: null;
     }
 
-    /**
-     * Push message to the remote endpoint, used in client side streaming mode.
-     * @param \Google\Protobuf\Internal\Message $message
-     * @param bool $end
-     * @return bool
-     */
-    public function push(
-        \Google\Protobuf\Internal\Message $message,
-        bool $end = false
-    ): bool {
+    public function push(\Google\Protobuf\Internal\Message $message, bool $end = false): bool
+    {
+        return $this->sendMessage($message);
+    }
+
+    private function sendMessage(\Google\Protobuf\Internal\Message $message): bool
+    {
         $payload = $message->serializeToString();
         return $this->client->push(
-            pack('CN', 0, strlen($payload)) . $payload,
+            pack('CN', 0, strlen($payload)) . $payload
         );
     }
 
-    /**
-     * @param \Google\Protobuf\Internal\Message $message
-     * @return bool
-     */
-    private function sendMessage(
-        \Google\Protobuf\Internal\Message $message
-    ): bool {
-        $payload = $message->serializeToString();
-        return $this->client->push(pack('CN', 0, strlen($payload)) . $payload);
-    }
-
-    /**
-     * @return ClientError
-     */
-    public function error(): ClientError
-    {
-        return new ClientError(
-            $this->client->errMsg,
-            $this->client->errCode
-        );
-    }
-
+    // 不要なエラーループロジックは整理
     public function hasConnectionError(): bool
     {
         return $this->closed->errCode != 0;
+    }
+
+    public function error(): ClientError
+    {
+        return new ClientError($this->client->errMsg, $this->client->errCode);
+    }
+
+    private function safeCloseChannel(): void
+    {
+        $this->channel?->close();
+    }
+
+    private function startReceivingLoop(): void
+    {
+        go(function () {
+            while (true) {
+                if (in_array($this->client->errCode, self::CLIENT_ERR_CODES)) {
+                    $this->safeCloseChannel();
+                    $this->client->close();
+                    $this->closed->close();
+                    break;
+                }
+
+                $response = $this->client->recv($this->settings['timeout']);
+                if ($response instanceof Frame && $response->data && $this->channel) {
+                    $this->channel->push(substr($response->data, 5));
+                }
+
+                if ($this->closed->pop(0.01)) {
+                    $this->safeCloseChannel();
+                    $this->client->close();
+                    break;
+                }
+            }
+        });
     }
 }
